@@ -420,7 +420,7 @@ class SiriProxy::Connection < EventMachine::Connection
             self.other_connection.close_connection() #close other
             return false
 
-          elsif $APP_CONFIG.clients_must_be_in_database==true and self.is_4S!=true and self.is_iPad3==false
+          elsif $APP_CONFIG.clients_must_be_in_database==true and ($APP_CONFIG.private_to_all_devices.to_s.upcase=="ON" or (self.is_4S!=true and self.is_iPad3==false))
 
             @checkuserassistant=Assistant.new
             @checkuserassistant.assistantid=@loadedassistant
@@ -471,7 +471,7 @@ class SiriProxy::Connection < EventMachine::Connection
 
             end
 
-          else # if its a public server
+          else # if its a public server or device has 4S data (if private_to_all_devices == false)
 
             @key=Key.new
             @available_keys=$keyDao.list4Skeys().count + $keyDao.listiPad3keys().count
@@ -1299,6 +1299,7 @@ class SiriProxy::Connection < EventMachine::Connection
 
         @client.valid="True" #needed if config in empy for the below
         @client.valid="False" if $APP_CONFIG.private_server.to_s.upcase == "ON" and self.is_4S!=true and self.is_iPad3==false
+        @client.valid="False" if @client.appleAccountid=="NA"
         @client.devicetype=@devicetype
         @client.deviceOS=self.iOS
         @client.last_ip=@clientip
@@ -1306,13 +1307,19 @@ class SiriProxy::Connection < EventMachine::Connection
         #pp @client
 
         #Lets put some auth here Log the clients even though they may not have access
+        begin
+          puts "-"*40
+          puts "@createassistant = #{@createassistant.to_s}"
+          puts "@client.valid = #{@client.valid.to_s}"
+          puts "@client.appleAccountid = #{@client.appleAccountid}"
+        end if $LOG_LEVEL >= 2
         if @createassistant==true and @client!=nil
           puts 'Debug Step one of creating assistants' if $LOG_LEVEL > 2
           puts 'Client is 'if $LOG_LEVEL > 2
             pp @client if $LOG_LEVEL > 2
             @oldclient=$clientsDao.check_duplicate(@client)
 
-            if @oldclient==nil
+            if @oldclient==nil or @oldclient.appleAccountid == "NA"
               $clientsDao.insert(@client)
               puts "[Client - SiriProxy] NEW Client [#{@client.appleAccountid}] and Valid=[#{@client.valid}] added To database"
               if @client.valid!='True'
@@ -1563,7 +1570,7 @@ class SiriProxy::Connection < EventMachine::Connection
       #keeping this for filters
       new_obj = received_object(object)
       #puts self.name
-      if self.validationData_avail==false and self.name=='iPhone' and self.is_4S==false and self.is_iPad3==false
+      if self.validationData_avail==false and self.name=='iPhone' and ($APP_CONFIG.private_to_all_devices.to_s.upcase=="ON" or (self.is_4S==false and self.is_iPad3==false))
         puts "[Protection - Siriproxy] Dropping Object from #{self.name}] #{object["class"]} due to no Validation or Authentification available" if $LOG_LEVEL >= 1
         puts '[Protection - Siriproxy] Closing both connections...'
         self.close_connection()

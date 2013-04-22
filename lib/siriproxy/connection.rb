@@ -1319,7 +1319,7 @@ class SiriProxy::Connection < EventMachine::Connection
             pp @client if $LOG_LEVEL > 2
             @oldclient=$clientsDao.check_duplicate(@client)
 
-            if @oldclient==nil or @oldclient.appleAccountid == "NA"
+            if @oldclient==nil
               $clientsDao.insert(@client)
               puts "[Client - SiriProxy] NEW Client [#{@client.appleAccountid}] and Valid=[#{@client.valid}] added To database"
               if @client.valid!='True'
